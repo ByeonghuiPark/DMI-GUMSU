@@ -1,0 +1,138 @@
+REM build.bat - Windows 배치 빌드 스크립트
+@echo off
+chcp 65001 > nul
+echo.
+echo ========================================
+echo   HWPX 자동화 도구 EXE 빌드 스크립트
+echo ========================================
+echo.
+
+REM 관리자 권한 확인
+net session >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚠️ 관리자 권한으로 실행하는 것을 권장합니다.
+    echo.
+)
+
+REM Python 설치 확인
+python --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ❌ Python이 설치되지 않았습니다.
+    echo https://python.org에서 Python을 다운로드하세요.
+    pause
+    exit /b 1
+)
+
+echo ✅ Python 설치됨
+python --version
+
+REM 가상환경 확인 및 생성
+if not exist "venv" (
+    echo 📦 가상환경 생성 중...
+    python -m venv venv
+    if %errorlevel% neq 0 (
+        echo ❌ 가상환경 생성 실패
+        pause
+        exit /b 1
+    )
+)
+
+REM 가상환경 활성화
+echo 🔄 가상환경 활성화...
+call venv\Scripts\activate.bat
+if %errorlevel% neq 0 (
+    echo ❌ 가상환경 활성화 실패
+    pause
+    exit /b 1
+)
+
+REM pip 업그레이드
+echo 📈 pip 업그레이드...
+python -m pip install --upgrade pip
+
+REM 의존성 설치
+echo 📦 의존성 패키지 설치...
+if exist "requirements.txt" (
+    pip install -r requirements.txt
+) else (
+    echo requirements.txt 생성...
+    python build_exe.py --requirements
+    pip install -r requirements.txt
+)
+
+if %errorlevel% neq 0 (
+    echo ❌ 패키지 설치 실패
+    pause
+    exit /b 1
+)
+
+REM Tesseract 설치 확인
+echo 🔍 Tesseract 확인...
+where tesseract >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ⚠️ Tesseract가 설치되지 않았습니다.
+    echo.
+    echo 다음 링크에서 Tesseract를 다운로드하세요:
+    echo https://github.com/UB-Mannheim/tesseract/wiki
+    echo.
+    set /p choice="Tesseract 없이 계속하시겠습니까? (y/n): "
+    if /i not "%choice%"=="y" (
+        echo 빌드 취소됨
+        pause
+        exit /b 1
+    )
+) else (
+    echo ✅ Tesseract 설치됨
+    tesseract --version | findstr "tesseract"
+)
+
+REM 이전 빌드 정리
+if exist "dist" (
+    echo 🗑️ 이전 빌드 파일 정리...
+    rmdir /s /q dist
+)
+if exist "build" (
+    rmdir /s /q build
+)
+if exist "*.spec" (
+    del /q *.spec
+)
+
+REM EXE 빌드 실행
+echo.
+echo 🏗️ EXE 빌드 시작...
+echo.
+python build_exe.py
+
+if %errorlevel% neq 0 (
+    echo.
+    echo ❌ 빌드 실패!
+    echo 오류를 확인하고 다시 시도하세요.
+    pause
+    exit /b 1
+)
+
+echo.
+echo ✅ 빌드 완료!
+echo 📁 dist 폴더에서 실행 파일을 확인하세요.
+echo.
+
+REM 결과 확인
+if exist "dist\HWPX_Automation.exe" (
+    for %%I in ("dist\HWPX_Automation.exe") do (
+        set "filesize=%%~zI"
+    )
+    echo 📏 파일 크기: %filesize% bytes
+    echo.
+    
+    set /p choice="지금 실행 파일을 테스트하시겠습니까? (y/n): "
+    if /i "%choice%"=="y" (
+        echo 🚀 실행 파일 시작...
+        start "" "dist\HWPX_Automation.exe"
+    )
+) else (
+    echo ❌ 실행 파일이 생성되지 않았습니다.
+)
+
+echo.
+pause
