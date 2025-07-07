@@ -1,0 +1,10 @@
+tkinter
+pillow
+lxml
+pdfplumber
+PyPDF2
+pytesseract
+tqdm
+chardet
+pandas
+openpyxl
